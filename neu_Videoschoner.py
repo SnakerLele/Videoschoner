@@ -12,8 +12,9 @@ def play_video(screen, video_path):
     Spielt ein einzelnes Video per VLC im Vollbild ab.
     Bricht ab, wenn das Video endet oder ein Eingabeereignis (Maus/Keyboard) auftritt.
     """
-    # VLC-Instanz mit Hardware-Decoding und einigen Optimierungen
-    # (Passe 'dxva2' für andere Betriebssysteme an, z.B. 'vaapi' oder 'videotoolbox')
+    # Pygame zwingt alle Events zu erkennen
+    pygame.event.set_grab(True)
+    
     instance = vlc.Instance(
         "--avcodec-hw=dxva2",         # Hardware-Beschleunigung
         "--no-video-title-show",      # Kein Titel-Overlay
@@ -42,36 +43,31 @@ def play_video(screen, video_path):
         time.sleep(0.5)
         
         running = True
-        last_check_time = time.time()
-        last_mouse_pos = pygame.mouse.get_pos()
-
         while running and player.get_state() not in (vlc.State.Ended, vlc.State.Stopped):
-            current_time = time.time()
+            mouse_pos_old = pygame.mouse.get_pos()
             
-            # Ereignisse häufiger prüfen
             for event in pygame.event.get():
-                if event.type in (pygame.QUIT, pygame.KEYDOWN):
+                if event.type == pygame.QUIT:
                     running = False
-                    break
-            
-            # Mausposition alle 50ms prüfen
-            if current_time - last_check_time >= 0.05:
-                current_mouse_pos = pygame.mouse.get_pos()
-                if (abs(current_mouse_pos[0] - last_mouse_pos[0]) > 5 or
-                    abs(current_mouse_pos[1] - last_mouse_pos[1]) > 5):
+                elif event.type == pygame.KEYDOWN:
                     running = False
-                
-                last_mouse_pos = current_mouse_pos
-                last_check_time = current_time
+                elif event.type == pygame.MOUSEMOTION:
+                    mouse_pos_new = pygame.mouse.get_pos()
+                    if abs(mouse_pos_new[0] - mouse_pos_old[0]) > 5 or \
+                       abs(mouse_pos_new[1] - mouse_pos_old[1]) > 5:
+                        running = False
             
-            # Kürzere Wartezeit
-            pygame.time.wait(10)
+            # Reduzierte Wartezeit für bessere Reaktion
+            pygame.time.wait(50)
             
         return running
     finally:
+        # Aufräumen
         player.stop()
         player.release()
         instance.release()
+        # Event-Grabbing wieder deaktivieren
+        pygame.event.set_grab(False)
 
 def get_primary_monitor():
     """
